@@ -91,6 +91,7 @@ from electrum_ltc.paymentrequest import PR_PAID
 
 
 class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
+
     payment_request_ok_signal = pyqtSignal()
     payment_request_error_signal = pyqtSignal()
     notify_transactions_signal = pyqtSignal()
@@ -403,8 +404,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             msg = ' '.join([
                 _("This wallet is watching-only."),
                 _("This means you will not be able to spend litecoins with it."),
-                _(
-                    "Make sure you own the seed phrase or the private keys, before you request Bitcoins to be sent to this wallet.")
+                _("Make sure you own the seed phrase or the private keys, before you request litecoins to be sent to this wallet.")
             ])
             self.show_warning(msg, title=_('Information'))
 
@@ -418,8 +418,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
     def backup_wallet(self):
         path = self.wallet.storage.path
         wallet_folder = os.path.dirname(path)
-        filename, __ = QFileDialog.getSaveFileName(self, _('Enter a filename for the copy of your wallet'),
-                                                   wallet_folder)
+        filename, __ = QFileDialog.getSaveFileName(self, _('Enter a filename for the copy of your wallet'), wallet_folder)
         if not filename:
             return
 
@@ -427,12 +426,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         if new_path != path:
             try:
                 shutil.copy2(path, new_path)
-                self.show_message(_("A copy of your wallet file was created in") + " '%s'" % str(new_path),
-                                  title=_("Wallet backup created"))
+                self.show_message(_("A copy of your wallet file was created in")+" '%s'" % str(new_path), title=_("Wallet backup created"))
             except (IOError, os.error) as reason:
-                self.show_critical(
-                    _("Electrum was unable to copy your wallet file to the specified location.") + "\n" + str(reason),
-                    title=_("Unable to create backup"))
+                self.show_critical(_("Electrum was unable to copy your wallet file to the specified location.") + "\n" + str(reason), title=_("Unable to create backup"))
 
     def update_recently_visited(self, filename):
         recent = self.config.get('recently_open', [])
@@ -451,8 +447,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
             def loader(k):
                 return lambda: self.gui_object.new_window(k)
-
-            self.recently_visited_menu.addAction(b, loader(k)).setShortcut(QKeySequence("Ctrl+%d" % (i + 1)))
+            self.recently_visited_menu.addAction(b, loader(k)).setShortcut(QKeySequence("Ctrl+%d"%(i+1)))
         self.recently_visited_menu.setEnabled(len(recent))
 
     def get_wallet_folder(self):
@@ -520,8 +515,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         tools_menu = menubar.addMenu(_("&Tools"))
 
         # Settings / Preferences are all reserved keywords in OSX using this as work around
-        tools_menu.addAction(_("Electrum preferences") if sys.platform == 'darwin' else _("Preferences"),
-                             self.settings_dialog)
+        tools_menu.addAction(_("Electrum preferences") if sys.platform == 'darwin' else _("Preferences"), self.settings_dialog)
         tools_menu.addAction(_("&Network"), lambda: self.gui_object.show_network_dialog(self))
         tools_menu.addAction(_("&Plugins"), self.plugins_dialog)
         tools_menu.addSeparator()
@@ -543,8 +537,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         help_menu.addAction(_("&About"), self.show_about)
         help_menu.addAction(_("&Official website"), lambda: webbrowser.open("http://electrum-ltc.org"))
         help_menu.addSeparator()
-        help_menu.addAction(_("&Documentation"), lambda: webbrowser.open("http://docs.electrum.org/")).setShortcut(
-            QKeySequence.HelpContents)
+        help_menu.addAction(_("&Documentation"), lambda: webbrowser.open("http://docs.electrum.org/")).setShortcut(QKeySequence.HelpContents)
         help_menu.addAction(_("&Report Bug"), self.show_report_bug)
         help_menu.addSeparator()
         help_menu.addAction(_("&Donate to server"), self.donate_to_server)
@@ -561,19 +554,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def show_about(self):
         QMessageBox.about(self, "Electrum-LTC",
-                          _("Version") + " %s" % (self.wallet.electrum_version) + "\n\n" +
-                          _(
-                              "Electrum's focus is speed, with low resource usage and simplifying Bitcoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Bitcoin system." + "\n\n" +
-                              _("Uses icons from the Icons8 icon pack (icons8.com).")))
+            _("Version")+" %s" % (self.wallet.electrum_version) + "\n\n" +
+                _("Electrum's focus is speed, with low resource usage and simplifying Litecoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Litecoin system."  + "\n\n" +
+                _("Uses icons from the Icons8 icon pack (icons8.com).")))
 
     def show_report_bug(self):
         msg = ' '.join([
             _("Please report any bugs as issues on github:<br/>"),
             "<a href=\"https://github.com/pooler/electrum-ltc/issues\">https://github.com/pooler/electrum-ltc/issues</a><br/><br/>",
-            _(
-                "Before reporting a bug, upgrade to the most recent version of Electrum (latest release or git HEAD), and include the version number in your report."),
+            _("Before reporting a bug, upgrade to the most recent version of Electrum (latest release or git HEAD), and include the version number in your report."),
             _("Try to explain not only what the bug is, but how it occurs.")
-        ])
+         ])
         self.show_message(msg, title="Electrum-LTC - " + _("Reporting Bugs"))
 
     def notify_transactions(self):
@@ -598,8 +589,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                         self.tx_notifications.remove(tx)
                         is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
                         if v > 0:
-                            self.notify(
-                                _("New transaction received: %(amount)s") % {'amount': self.format_amount_and_units(v)})
+                            self.notify(_("New transaction received: {}").format(self.format_amount_and_units(v)))
 
     def notify(self, message):
         if self.tray:
@@ -609,15 +599,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             except TypeError:
                 self.tray.showMessage("Electrum-LTC", message, QSystemTrayIcon.Information, 20000)
 
+
+
     # custom wrappers for getOpenFileName and getSaveFileName, that remember the path selected by the user
-    def getOpenFileName(self, title, filter=""):
+    def getOpenFileName(self, title, filter = ""):
         directory = self.config.get('io_dir', os.path.expanduser('~'))
         fileName, __ = QFileDialog.getOpenFileName(self, title, directory, filter)
         if fileName and directory != os.path.dirname(fileName):
             self.config.set_key('io_dir', os.path.dirname(fileName), True)
         return fileName
 
-    def getSaveFileName(self, title, filename, filter=""):
+    def getSaveFileName(self, title, filename, filter = ""):
         directory = self.config.get('io_dir', os.path.expanduser('~'))
         path = os.path.join(directory, filename)
         fileName, __ = QFileDialog.getSaveFileName(self, title, path, filter)
@@ -726,16 +718,16 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 icon = QIcon(":icons/status_lagging.png")
             else:
                 c, u, x = self.wallet.get_balance()
-                text = _("Balance") + ": %s " % (self.format_amount_and_units(c))
+                text =  _("Balance" ) + ": %s "%(self.format_amount_and_units(c))
                 if u:
-                    text += " [%s unconfirmed]" % (self.format_amount(u, True).strip())
+                    text +=  " [%s unconfirmed]"%(self.format_amount(u, True).strip())
                 if x:
-                    text += " [%s unmatured]" % (self.format_amount(x, True).strip())
+                    text +=  " [%s unmatured]"%(self.format_amount(x, True).strip())
 
                 # append fiat balance and price
                 if self.fx.is_enabled():
                     text += self.fx.get_fiat_status_text(c + u + x,
-                                                         self.base_unit(), self.get_decimal_point()) or ''
+                        self.base_unit(), self.get_decimal_point()) or ''
                 if not self.network.proxy:
                     icon = QIcon(":icons/status_connected.png")
                 else:
@@ -746,7 +738,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         self.tray.setToolTip("%s (%s)" % (text, self.wallet.basename()))
         self.balance_label.setText(text)
-        self.status_button.setIcon(icon)
+        self.status_button.setIcon( icon )
+
 
     def update_wallet(self):
         self.update_status()
@@ -870,6 +863,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         return w
 
+
     def delete_payment_request(self, addr):
         self.wallet.remove_payment_request(addr, self.config)
         self.request_list.update()
@@ -881,14 +875,15 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         amount = req['amount']
         URI = util.create_URI(addr, amount, message)
         if req.get('time'):
-            URI += "&time=%d" % req.get('time')
+            URI += "&time=%d"%req.get('time')
         if req.get('exp'):
-            URI += "&exp=%d" % req.get('exp')
+            URI += "&exp=%d"%req.get('exp')
         if req.get('name') and req.get('sig'):
             sig = bfh(req.get('sig'))
             sig = bitcoin.base_encode(sig, base=58)
-            URI += "&name=" + req['name'] + "&sig=" + sig
+            URI += "&name=" + req['name'] + "&sig="+sig
         return str(URI)
+
 
     def sign_payment_request(self, addr):
         alias = self.config.get('alias')
@@ -958,11 +953,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                     _('No more addresses in your wallet.'),
                     _('You are using a non-deterministic wallet, which cannot create new addresses.'),
                     _('If you want to create new addresses, use a deterministic wallet instead.')
-                ]
+                   ]
                 self.show_message(' '.join(msg))
                 return
-            if not self.question(_(
-                    "Warning: The next address will not be recovered automatically if you restore your wallet from seed; you may need to add it manually.\n\nThis occurs because you have too many unused addresses in your wallet. To avoid this situation, use the existing addresses first.\n\nCreate anyway?")):
+            if not self.question(_("Warning: The next address will not be recovered automatically if you restore your wallet from seed; you may need to add it manually.\n\nThis occurs because you have too many unused addresses in your wallet. To avoid this situation, use the existing addresses first.\n\nCreate anyway?")):
                 return
             addr = self.wallet.create_new_address(False)
         self.set_receive_address(addr)
@@ -1048,9 +1042,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.payto_e.setCompleter(completer)
         completer.setModel(self.completions)
 
-        msg = _('Description of the transaction (not mandatory).') + '\n\n' \
-              + _(
-            'The description is not sent to the recipient of the funds. It is stored in your wallet file, and displayed in the \'History\' tab.')
+        msg = _('Description of the transaction (not mandatory).') + '\n\n'\
+              + _('The description is not sent to the recipient of the funds. It is stored in your wallet file, and displayed in the \'History\' tab.')
         description_label = HelpLabel(_('Description'), msg)
         grid.addWidget(description_label, 2, 0)
         self.message_e = MyLineEdit()
@@ -1058,7 +1051,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         self.from_label = QLabel(_('From'))
         grid.addWidget(self.from_label, 3, 0)
-        self.from_list = MyTreeWidget(self, self.from_list_menu, ['', ''])
+        self.from_list = MyTreeWidget(self, self.from_list_menu, ['',''])
         self.from_list.setHeaderHidden(True)
         self.from_list.setMaximumHeight(80)
         grid.addWidget(self.from_list, 3, 1, 1, -1)
@@ -1066,8 +1059,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         msg = _('Amount to be sent.') + '\n\n' \
               + _('The amount will be displayed in red if you do not have enough funds in your wallet.') + ' ' \
-              + _(
-            'Note that if you have frozen some of your addresses, the available funds will be lower than your total balance.') + '\n\n' \
+              + _('Note that if you have frozen some of your addresses, the available funds will be lower than your total balance.') + '\n\n' \
               + _('Keyboard shortcut: type "!" to send all your coins.')
         amount_label = HelpLabel(_('Amount'), msg)
         grid.addWidget(amount_label, 4, 0)
@@ -1206,7 +1198,6 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         def reset_max(t):
             self.is_max = False
             self.max_button.setEnabled(not bool(t))
-
         self.amount_e.textEdited.connect(reset_max)
         self.fiat_send_e.textEdited.connect(reset_max)
 
@@ -1220,11 +1211,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             if self.not_enough_funds:
                 amt_color, fee_color = ColorScheme.RED, ColorScheme.RED
                 feerate_color = ColorScheme.RED
-                text = _("Not enough funds")
+                text = _( "Not enough funds" )
                 c, u, x = self.wallet.get_frozen_balance()
-                if c + u + x:
-                    text += ' (' + self.format_amount(c + u + x).strip() + ' ' + self.base_unit() + ' ' + _(
-                        "are frozen") + ')'
+                if c+u+x:
+                    text += ' (' + self.format_amount(c+u+x).strip() + ' ' + self.base_unit() + ' ' +_("are frozen") + ')'
 
             # blue color denotes auto-filled values
             elif self.fee_e.isModified():
@@ -2777,8 +2767,6 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         use_rbf_cb.stateChanged.connect(on_use_rbf)
         fee_widgets.append((use_rbf_cb, None))
-
-
 
 
 
