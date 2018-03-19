@@ -50,6 +50,9 @@ class GuiMixin(object):
         else:
             msg = _("Enter your current {} PIN:")
         pin = self.handler.get_pin(msg.format(self.device))
+        if len(pin) > 9:
+            self.handler.show_error(_('The PIN cannot be longer than 9 characters.'))
+            pin = ''  # to cancel below
         if not pin:
             return self.proto.Cancel()
         return self.proto.PinMatrixAck(pin=pin)
@@ -188,7 +191,6 @@ class KeepKeyClientBase(GuiMixin, PrintError):
         except BaseException as e:
             # If the device was removed it has the same effect...
             self.print_error("clear_session: ignoring error", str(e))
-            pass
 
     def get_public_node(self, address_n, creating):
         self.creating_wallet = creating

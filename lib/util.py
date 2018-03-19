@@ -41,7 +41,6 @@ def inv_dict(d):
 
 
 base_units = {'LTC':8, 'mLTC':5, 'uLTC':2}
-fee_levels = [_('Within 25 blocks'), _('Within 10 blocks'), _('Within 5 blocks'), _('Within 2 blocks'), _('In the next block')]
 
 def normalize_version(v):
     return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
@@ -60,15 +59,29 @@ class InvalidPassword(Exception):
 
 
 class FileImportFailed(Exception):
+    def __init__(self, message=''):
+        self.message = str(message)
+
     def __str__(self):
-        return _("Failed to import file.")
+        return _("Failed to import from file.") + "\n" + self.message
 
 
-class FileImportFailedEncrypted(FileImportFailed):
+class FileExportFailed(Exception):
+    def __init__(self, message=''):
+        self.message = str(message)
+
     def __str__(self):
-        return (_('Failed to import file.') + ' ' +
-                _('Perhaps it is encrypted...') + '\n' +
-                _('Importing encrypted files is not supported.'))
+        return _("Failed to export to file.") + "\n" + self.message
+
+
+class TimeoutException(Exception):
+    def __init__(self, message=''):
+        self.message = str(message)
+
+    def __str__(self):
+        if not self.message:
+            return _("Operation timed out.")
+        return self.message
 
 
 # Throw this exception to unwind the stack like when an error occurs.
@@ -100,7 +113,7 @@ class Fiat(object):
         return 'Fiat(%s)'% self.__str__()
 
     def __str__(self):
-        if self.value is None:
+        if self.value.is_nan():
             return _('No Data')
         else:
             return "{:.2f}".format(self.value) + ' ' + self.ccy
@@ -416,10 +429,9 @@ def format_satoshis(x, is_diff=False, num_zeros = 0, decimal_point = 8, whitespa
     return result
 
 def timestamp_to_datetime(timestamp):
-    try:
-        return datetime.fromtimestamp(timestamp)
-    except:
+    if timestamp is None:
         return None
+    return datetime.fromtimestamp(timestamp)
 
 def format_time(timestamp):
     date = timestamp_to_datetime(timestamp)
@@ -480,11 +492,13 @@ def time_difference(distance_in_time, include_seconds):
         return "over %d years" % (round(distance_in_minutes / 525600))
 
 mainnet_block_explorers = {
+    'Bchain.info': ('https://bchain.info/',
+                        {'tx': 'LTC/tx/', 'addr': 'LTC/addr/'}),
+    'BlockCypher.com': ('https://live.blockcypher.com/ltc/',
+                        {'tx': 'tx/', 'addr': 'address/'}),
     'explorer.litecoin.net': ('http://explorer.litecoin.net/',
                         {'tx': 'tx/', 'addr': 'address/'}),
-    'Blockr.io': ('https://ltc.blockr.io/',
-                        {'tx': 'tx/info/', 'addr': 'address/info/'}),
-    'BlockCypher.com': ('https://live.blockcypher.com/ltc/',
+    'LiteCore': ('https://insight.litecore.io/',
                         {'tx': 'tx/', 'addr': 'address/'}),
     'SoChain': ('https://chain.so/',
                         {'tx': 'tx/LTC/', 'addr': 'address/LTC/'}),
@@ -493,20 +507,20 @@ mainnet_block_explorers = {
 }
 
 testnet_block_explorers = {
-    'SoChain': ('https://chain.so/',
-                        {'tx': 'tx/LTCTEST/', 'addr': 'address/LTCTEST/'}),
     'LiteCore': ('https://testnet.litecore.io/',
                         {'tx': 'tx/', 'addr': 'address/'}),
+    'SoChain': ('https://chain.so/',
+                        {'tx': 'tx/LTCTEST/', 'addr': 'address/LTCTEST/'}),
     'system default': ('blockchain://4966625a4b2851d9fdee139e56211a0d88575f59ed816ff5e6a63deb4e3e29a0/',
                        {'tx': 'tx/', 'addr': 'address/'}),
 }
 
 def block_explorer_info():
-    from . import bitcoin
-    return testnet_block_explorers if bitcoin.NetworkConstants.TESTNET else mainnet_block_explorers
+    from . import constants
+    return testnet_block_explorers if constants.net.TESTNET else mainnet_block_explorers
 
 def block_explorer(config):
-    return config.get('block_explorer', 'SoChain')
+    return config.get('block_explorer', 'LiteCore')
 
 def block_explorer_tuple(config):
     return block_explorer_info().get(block_explorer(config))
@@ -772,3 +786,26 @@ def setup_thread_excepthook():
 
 def versiontuple(v):
     return tuple(map(int, (v.split("."))))
+
+
+def import_meta(path, validater, load_meta):
+    try:
+        with open(path, 'r') as f:
+            d = validater(json.loads(f.read()))
+        load_meta(d)
+    #backwards compatibility for JSONDecodeError
+    except ValueError:
+        traceback.print_exc(file=sys.stderr)
+        raise FileImportFailed(_("Invalid JSON code."))
+    except BaseException as e:
+        traceback.print_exc(file=sys.stdout)
+        raise FileImportFailed(e)
+
+
+def export_meta(meta, fileName):
+    try:
+        with open(fileName, 'w+') as f:
+            json.dump(meta, f, indent=4, sort_keys=True)
+    except (IOError, os.error) as e:
+        traceback.print_exc(file=sys.stderr)
+        raise FileExportFailed(e)

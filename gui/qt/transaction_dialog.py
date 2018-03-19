@@ -25,12 +25,20 @@
 import copy
 import datetime
 import json
+import traceback
+
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
 from electrum_ltc.bitcoin import base_encode
 from electrum_ltc.i18n import _
 from electrum_ltc.plugins import run_hook
+from electrum_ltc import simple_config
+
 from electrum_ltc.util import bfh
-from electrum_ltc.wallet import UnrelatedTransactionException
+from electrum_ltc.wallet import AddTransactionException
+from electrum_ltc.transaction import SerializationError
 
 from .util import *
 
@@ -38,9 +46,14 @@ dialogs = []  # Otherwise python randomly garbage collects the dialogs...
 
 
 def show_transaction(tx, parent, desc=None, prompt_if_unsaved=False, cryptagio_tx_id=None, cryptagio_tx_hash=None):
-    d = TxDialog(tx, parent, desc, prompt_if_unsaved, cryptagio_tx_id, cryptagio_tx_hash)
-    dialogs.append(d)
-    d.show()
+    try:
+        d = TxDialog(tx, parent, desc, prompt_if_unsaved, cryptagio_tx_id, cryptagio_tx_hash)
+    except SerializationError as e:
+        traceback.print_exc(file=sys.stderr)
+        parent.show_critical(_("Electrum was unable to deserialize the transaction:") + "\n" + str(e))
+    else:
+        dialogs.append(d)
+        d.show()
 
 
 class TxDialog(QDialog, MessageBoxMixin):
@@ -55,7 +68,10 @@ class TxDialog(QDialog, MessageBoxMixin):
         # e.g. the FX plugin.  If this happens during or after a long
         # sign operation the signatures are lost.
         self.tx = copy.deepcopy(tx)
-        self.tx.deserialize()
+        try:
+            self.tx.deserialize()
+        except BaseException as e:
+            raise SerializationError(e)
         self.main_window = parent
         self.wallet = parent.wallet
         self.prompt_if_unsaved = prompt_if_unsaved
@@ -171,16 +187,19 @@ class TxDialog(QDialog, MessageBoxMixin):
 
     def sign(self):
         def sign_done(success):
-            if success:
+            # note: with segwit we could save partially signed tx, because they have a txid
+            if self.tx.is_complete():
                 self.prompt_if_unsaved = True
                 self.saved = False
-            self.save_button.setDisabled(False)
-            self.save_button.setToolTip("")
-                # if not self.tx.is_complete() and self.cryptagio_tx_id is not None:
-                if self.cryptagio_tx_id is not None:
-                    self.cryptagio_tx_hash = self.main_window.cryptagio.update_tx(self.cryptagio_tx_id,
-                                                                                  tx_hash, fee, self.tx,
-                                                                                  self.cryptagio_tx_hash)
+                self.save_button.setDisabled(False)
+                self.save_button.setToolTip("")
+
+            tx_hash, fee = self.update()
+            # if not self.tx.is_complete() and self.cryptagio_tx_id is not None:
+            if self.cryptagio_tx_id is not None:
+                self.cryptagio_tx_hash = self.main_window.cryptagio.update_tx(self.cryptagio_tx_id,
+                                                                              tx_hash, fee, self.tx,
+                                                                              self.cryptagio_tx_hash)
             self.main_window.pop_top_level_window(self)
 
         self.sign_button.setDisabled(True)
@@ -188,17 +207,9 @@ class TxDialog(QDialog, MessageBoxMixin):
         self.main_window.sign_tx(self.tx, sign_done)
 
     def save(self):
-        if not self.wallet.add_transaction(self.tx.txid(), self.tx):
-            self.show_error(_("Transaction could not be saved. It conflicts with current history."))
-            return
-        self.wallet.save_transactions(write=True)
-
-        # need to update at least: history_list, utxo_list, address_list
-        self.main_window.need_update.set()
-
-        self.save_button.setDisabled(True)
-        self.show_message(_("Transaction saved successfully"))
-        self.saved = True
+        if self.main_window.save_transaction_into_wallet(self.tx):
+            self.save_button.setDisabled(True)
+            self.saved = True
 
 
     def export(self):
@@ -214,8 +225,7 @@ class TxDialog(QDialog, MessageBoxMixin):
         desc = self.desc
         base_unit = self.main_window.base_unit()
         format_amount = self.main_window.format_amount
-        tx_hash, status, label, can_broadcast, can_rbf, amount, fee, height, conf, timestamp, exp_n = self.wallet.get_tx_info(
-            self.tx)
+        tx_hash, status, label, can_broadcast, can_rbf, amount, fee, height, conf, timestamp, exp_n = self.wallet.get_tx_info(self.tx)
         size = self.tx.estimated_size()
 
         if is_broadcastable: self.broadcast_button.setEnabled(can_broadcast)
@@ -249,7 +259,11 @@ class TxDialog(QDialog, MessageBoxMixin):
         size_str = _("Size:") + ' %d bytes' % size
         fee_str = _("Fee") + ': %s' % (format_amount(fee) + ' ' + base_unit if fee is not None else _('unknown'))
         if fee is not None:
-            fee_str += '  ( %s ) ' % self.main_window.format_fee_rate(fee / size * 1000)
+            fee_rate = fee/size*1000
+            fee_str += '  ( %s ) ' % self.main_window.format_fee_rate(fee_rate)
+            confirm_rate = simple_config.FEERATE_WARNING_HIGH_FEE
+            if fee_rate > confirm_rate:
+                fee_str += ' - ' + _('Warning') + ': ' + _("high fee") + '!'
         self.amount_label.setText(amount_str)
         self.fee_label.setText(fee_str)
         self.size_label.setText(size_str)
@@ -266,7 +280,7 @@ class TxDialog(QDialog, MessageBoxMixin):
         rec.setBackground(QBrush(ColorScheme.GREEN.as_color(background=True)))
         rec.setToolTip(_("Wallet receive address"))
         chg = QTextCharFormat()
-        chg.setBackground(QBrush(QColor("yellow")))
+        chg.setBackground(QBrush(ColorScheme.YELLOW.as_color(background=True)))
         chg.setToolTip(_("Wallet change address"))
 
         def text_format(addr):
@@ -292,7 +306,7 @@ class TxDialog(QDialog, MessageBoxMixin):
                 cursor.insertText(prevout_hash[-8:] + ":%-4d " % prevout_n, ext)
                 addr = x.get('address')
                 if addr == "(pubkey)":
-                    _addr = self.wallet.find_pay_to_pubkey_address(prevout_hash, prevout_n)
+                    _addr = self.wallet.get_txin_address(x)
                     if _addr:
                         addr = _addr
                 if addr is None:

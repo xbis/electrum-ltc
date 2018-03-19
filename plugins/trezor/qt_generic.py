@@ -251,7 +251,7 @@ class QtPlugin(QtPluginBase):
             vbox.addWidget(QLabel(msg))
             vbox.addWidget(text)
             pin = QLineEdit()
-            pin.setValidator(QRegExpValidator(QRegExp('[1-9]{0,10}')))
+            pin.setValidator(QRegExpValidator(QRegExp('[1-9]{0,9}')))
             pin.setMaximumWidth(100)
             hbox_pin = QHBoxLayout()
             hbox_pin.addWidget(QLabel(_("Enter your PIN (digits 1-9):")))
@@ -321,8 +321,11 @@ class SettingsDialog(WindowModalDialog):
         def update(features):
             self.features = features
             set_label_enabled()
-            bl_hash = bh2u(features.bootloader_hash)
-            bl_hash = "\n".join([bl_hash[:32], bl_hash[32:]])
+            if features.bootloader_hash:
+                bl_hash = bh2u(features.bootloader_hash)
+                bl_hash = "\n".join([bl_hash[:32], bl_hash[32:]])
+            else:
+                bl_hash = "N/A"
             noyes = [_("No"), _("Yes")]
             endis = [_("Enable Passphrases"), _("Disable Passphrases")]
             disen = [_("Disabled"), _("Enabled")]
