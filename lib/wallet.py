@@ -2100,8 +2100,6 @@ class Deterministic_Wallet(Abstract_Wallet):
             self._addr_to_addr_index[address] = (for_change, n)
             self.save_addresses()
             self.add_address(address)
-            self.set_hdpath(address, path)
-
             return address
 
     def create_new_hd_address(self, path, save):
