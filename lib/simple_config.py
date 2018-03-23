@@ -114,6 +114,9 @@ class SimpleConfig(PrintError):
         if self.get('testnet'):
             path = os.path.join(path, 'testnet')
             make_dir(path)
+        if self.get('regtest'):
+            path = os.path.join(path, 'regtest')
+            make_dir(path)
 
         self.print_error("electrum directory", path)
         return path

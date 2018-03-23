@@ -414,6 +414,8 @@ if __name__ == '__main__':
     config = SimpleConfig(config_options)
     cmdname = config.get('cmd')
 
+    if config.get('regtest'):
+        constants.set_regtest()
     if config.get('testnet'):
         constants.set_testnet()
 
